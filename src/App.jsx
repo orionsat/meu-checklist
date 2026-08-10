@@ -60,6 +60,10 @@ export default function ChecklistApp() {
   const [step, setStep] = useState(1); 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Estados de Segurança e Dispositivo
+  const [deviceOS, setDeviceOS] = useState('Desconhecido');
+  const [isMobileDevice, setIsMobileDevice] = useState(true);
+
   // Estados dos Dados Documentais
   const [docInfo, setDocInfo] = useState({ 
     empresa_nome: 'Carregando Empresa...', 
@@ -75,6 +79,7 @@ export default function ChecklistApp() {
 
   const [files, setFiles] = useState({});
   const [filePreviews, setFilePreviews] = useState({});
+  const [fullScreenImage, setFullScreenImage] = useState(null); 
   const [video360, setVideo360] = useState(null);
   const [videoPreview, setVideoPreview] = useState(null);
   const [levels, setLevels] = useState({ oleo: '', agua: '', agua_obs: '' });
@@ -87,8 +92,24 @@ export default function ChecklistApp() {
   const [locationText, setLocationText] = useState("Obtendo GPS...");
   const [gpsCoords, setGpsCoords] = useState(null);
 
-  // Inicializa dados da URL e GPS
   useEffect(() => {
+    // 1. VERIFICAÇÃO DE SISTEMA OPERACIONAL (ANTIFRAUDE PC)
+    const ua = navigator.userAgent;
+    let os = "Desconhecido";
+    if (/android/i.test(ua)) os = "Android";
+    else if (/iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) os = "iOS";
+    else if (/Windows/.test(ua)) os = "Windows";
+    else if (/Mac OS/.test(ua)) os = "Mac OS";
+    else if (/Linux/.test(ua)) os = "Linux";
+
+    setDeviceOS(os);
+
+    // Se for Desktop (Windows, Mac OS sem touch, Linux), bloqueia.
+    if (os === "Windows" || (os === "Mac OS" && navigator.maxTouchPoints <= 1) || (os === "Linux" && !/android/i.test(ua))) {
+      setIsMobileDevice(false);
+    }
+
+    // 2. INICIALIZAÇÃO DE DADOS
     const params = new URLSearchParams(window.location.search);
     const hoje = new Date();
     const dataFormatada = hoje.toLocaleDateString('pt-BR') + ' às ' + hoje.toLocaleTimeString('pt-BR', { hour: '2-digit', minute:'2-digit' });
@@ -109,13 +130,31 @@ export default function ChecklistApp() {
     lightsChecklist.forEach(l => initialLights[l.id] = 'OK');
     setLights(initialLights);
 
-    // GPS
+    // 3. BUSCA GPS
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const coords = `${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}`;
+        async (pos) => {
+          const lat = pos.coords.latitude;
+          const lon = pos.coords.longitude;
+          const coords = `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
           setGpsCoords(coords);
-          setLocationText(`GPS: ${coords}`);
+          
+          try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+            const data = await res.json();
+            if (data && data.address) {
+              const road = data.address.road || data.address.pedestrian || '';
+              const suburb = data.address.suburb || data.address.city_district || '';
+              const city = data.address.city || data.address.town || data.address.municipality || '';
+              const state = data.address.state || '';
+              const enderecoFormatado = `${road}, ${suburb} - ${city}/${state}`.replace(/^, | ,/g, '').trim();
+              setLocationText(enderecoFormatado || `GPS: ${coords}`);
+            } else {
+              setLocationText(`GPS: ${coords}`);
+            }
+          } catch (error) {
+            setLocationText(`GPS: ${coords}`);
+          }
         },
         () => setLocationText("GPS: Não autorizado"),
         { enableHighAccuracy: true, timeout: 10000 }
@@ -125,7 +164,6 @@ export default function ChecklistApp() {
     }
   }, []);
 
-  // Transforma Base64 em Arquivo (File) para envio no FormData
   const dataURLtoFile = (dataurl, filename) => {
     let arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
     bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
@@ -133,7 +171,6 @@ export default function ChecklistApp() {
     return new File([u8arr], filename, {type:mime});
   };
 
-  // Função para carimbar foto com Data, Hora e GPS
   const processImageWithWatermark = (file) => {
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -143,16 +180,17 @@ export default function ChecklistApp() {
         img.src = event.target.result;
         img.onload = () => {
           const canvas = document.createElement("canvas");
+          
           canvas.width = img.width;
           canvas.height = img.height;
           const ctx = canvas.getContext("2d");
 
           ctx.drawImage(img, 0, 0);
 
-          const bannerHeight = Math.max(60, img.height * 0.08);
-          const fontSize = Math.max(18, Math.floor(bannerHeight * 0.35));
+          const bannerHeight = Math.max(80, img.height * 0.12);
+          const fontSize = Math.max(20, Math.floor(bannerHeight * 0.25));
 
-          ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
+          ctx.fillStyle = "rgba(0, 0, 0, 0.70)";
           ctx.fillRect(0, img.height - bannerHeight, img.width, bannerHeight);
 
           ctx.fillStyle = "#FFFFFF";
@@ -160,10 +198,14 @@ export default function ChecklistApp() {
 
           const now = new Date().toLocaleString("pt-BR");
           const line1 = `VISTORIA - ${now}`;
-          const line2 = gpsCoords ? `GPS: ${gpsCoords}` : `GPS: ${locationText}`;
+          const line2 = `ENDEREÇO: ${locationText}`;
+          const line3 = `COORDENADAS: ${gpsCoords || 'Indisponível'}`;
 
-          ctx.fillText(line1, 20, img.height - bannerHeight + fontSize + 5);
-          ctx.fillText(line2, 20, img.height - (bannerHeight / 2) + (fontSize / 2));
+          ctx.fillText(line1, 20, img.height - bannerHeight + (fontSize * 1.2));
+          ctx.fillText(line2, 20, img.height - bannerHeight + (fontSize * 2.5));
+          
+          ctx.fillStyle = "#A6E22E"; 
+          ctx.fillText(line3, 20, img.height - bannerHeight + (fontSize * 3.8));
 
           resolve(canvas.toDataURL("image/jpeg", 0.85));
         };
@@ -171,7 +213,6 @@ export default function ChecklistApp() {
     });
   };
 
-  // Modificado para carimbar foto antes de salvar
   const handleFileChange = async (e, id) => {
     const file = e.target.files[0];
     if (file) {
@@ -227,7 +268,9 @@ export default function ChecklistApp() {
     dataToSend.append('placa', docInfo.veiculo_placa);
     dataToSend.append('modelo', docInfo.veiculo_modelo);
     dataToSend.append('data_vistoria', docInfo.data_atual);
-    dataToSend.append('gps', gpsCoords || locationText); // GPS salvo no formulário
+    dataToSend.append('gps', gpsCoords || "Indisponível");
+    dataToSend.append('endereco_local', locationText);
+    dataToSend.append('sistema_operacional', deviceOS); // <--- OS Capturado sendo enviado
 
     dataToSend.append('nivel_oleo', levels.oleo);
     dataToSend.append('nivel_agua', levels.agua);
@@ -249,7 +292,6 @@ export default function ChecklistApp() {
     }
 
     try {
-      // Endpoint ATUALIZADO para a Lynkapay (Produção)
       const resposta = await fetch('https://webhook.lynkapay.com.br/webhook/receber-laudo', {
         method: 'POST',
         body: dataToSend,
@@ -268,8 +310,46 @@ export default function ChecklistApp() {
     }
   };
 
+  // --------------------------------------------------------
+  // TELA DE BLOQUEIO PARA COMPUTADORES (PC/MAC)
+  // --------------------------------------------------------
+  if (!isMobileDevice) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 text-center">
+        <div className="bg-white p-8 rounded-2xl shadow-2xl max-w-md border-t-8 border-red-600">
+          <div className="text-6xl mb-4">📱❌</div>
+          <h1 className="text-2xl font-black text-slate-800 mb-2">Acesso Negado</h1>
+          <p className="text-slate-600 mb-5 font-medium leading-relaxed">
+            Por medidas de segurança e antifraude, este laudo de vistoria só pode ser preenchido e assinado através de um <strong>Smartphone</strong> (Câmera).
+          </p>
+          <div className="bg-slate-100 p-4 rounded-lg text-sm text-slate-700 border border-slate-200">
+            <p>Por favor, abra o link recebido diretamente no seu aparelho celular.</p>
+          </div>
+          <p className="text-xs text-slate-400 mt-6 font-mono">Dispositivo detectado: {deviceOS}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // --------------------------------------------------------
+  // TELA NORMAL DO APLICATIVO (PARA CELULARES)
+  // --------------------------------------------------------
   return (
-    <div className="min-h-screen bg-gray-100 p-2 md:p-4 font-sans text-gray-800 pb-20">
+    <div className="min-h-screen bg-gray-100 p-2 md:p-4 font-sans text-gray-800 pb-20 relative">
+      
+      {/* MODAL DE FOTO EM TELA CHEIA */}
+      {fullScreenImage && (
+        <div className="fixed inset-0 z-[9999] bg-black bg-opacity-95 flex items-center justify-center p-4">
+          <button 
+            onClick={() => setFullScreenImage(null)} 
+            className="absolute top-4 right-4 bg-white text-black rounded-full w-10 h-10 flex items-center justify-center font-bold text-xl shadow-lg"
+          >
+            X
+          </button>
+          <img src={fullScreenImage} alt="Preview em Tela Cheia" className="max-w-full max-h-full object-contain rounded-lg" />
+        </div>
+      )}
+
       <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-md overflow-hidden">
         
         {/* CABEÇALHO DO LAUDO */}
@@ -279,17 +359,17 @@ export default function ChecklistApp() {
             <p className="text-blue-300 font-bold uppercase tracking-widest text-sm mt-1">Laudo de Vistoria Oficial</p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm bg-slate-800 p-4 rounded-lg border border-slate-700">
+          <div className="grid grid-cols-1 gap-4 text-sm bg-slate-800 p-4 rounded-lg border border-slate-700">
             <div>
               <p className="text-slate-400 font-bold uppercase mb-1 text-xs">Dados da Locadora</p>
               <p>CNPJ: <span className="font-medium">{docInfo.empresa_cnpj}</span></p>
               <p>Email: <span className="font-medium">{docInfo.empresa_email}</span></p>
               <p>Tel: <span className="font-medium">{docInfo.empresa_tel}</span></p>
             </div>
-            <div>
+            <div className="pt-3 border-t border-slate-700">
               <p className="text-slate-400 font-bold uppercase mb-1 text-xs">Registro de Vistoria</p>
               <p>Data: <span className="font-medium">{docInfo.data_atual}</span></p>
-              <p>Local: <span className="font-medium">{locationText}</span></p>
+              <p>Local: <span className="font-medium text-blue-300">{locationText}</span></p>
             </div>
           </div>
         </div>
@@ -298,14 +378,14 @@ export default function ChecklistApp() {
         <div className="p-4 md:p-6 bg-slate-50 border-b border-slate-200">
           <div className="grid grid-cols-2 gap-y-4 gap-x-4">
             <div>
-              <span className="block text-xs font-bold text-slate-500 uppercase">Condutor Responsável</span>
-              <span className="font-bold text-slate-800 text-lg">{docInfo.motorista_nome}</span>
-              <span className="block text-sm text-slate-600">{docInfo.motorista_tel}</span>
+              <span className="block text-xs font-bold text-slate-500 uppercase">Condutor</span>
+              <span className="font-bold text-slate-800 text-lg leading-tight block">{docInfo.motorista_nome}</span>
+              <span className="block text-sm text-slate-600 mt-1">{docInfo.motorista_tel}</span>
             </div>
             <div className="text-right">
               <span className="block text-xs font-bold text-slate-500 uppercase">Veículo</span>
-              <span className="font-bold text-slate-800 text-lg">{docInfo.veiculo_modelo}</span>
-              <span className="block mt-1"><span className="bg-slate-800 text-white font-bold px-3 py-1 rounded text-sm">{docInfo.veiculo_placa}</span></span>
+              <span className="font-bold text-slate-800 text-lg leading-tight block">{docInfo.veiculo_modelo}</span>
+              <span className="inline-block mt-2"><span className="bg-slate-800 text-white font-bold px-3 py-1 rounded text-sm">{docInfo.veiculo_placa}</span></span>
             </div>
           </div>
         </div>
@@ -324,19 +404,35 @@ export default function ChecklistApp() {
                       <h3 className="font-bold text-slate-800 text-lg mb-1">{item.label}</h3>
                       <p className="text-sm text-slate-600 mb-4 flex-grow">{item.instruction}</p>
                       
-                      <div className="rounded-lg overflow-hidden border-2 border-slate-200 mb-4 bg-slate-100 flex items-center justify-center h-40 relative">
+                      <div className="rounded-lg overflow-hidden border-2 border-slate-200 mb-4 bg-slate-100 flex items-center justify-center h-48 relative">
                         {filePreviews[item.id] ? (
-                          <img src={filePreviews[item.id]} alt="Preview" className="w-full h-full object-cover" />
+                          <img src={filePreviews[item.id]} alt="Preview" className="w-full h-full object-contain bg-black" />
                         ) : (
-                          <img src={item.exampleImg} alt="Exemplo" className="w-full h-full object-cover opacity-90" />
+                          <img src={item.exampleImg} alt="Exemplo" className="w-full h-full object-cover opacity-80" />
                         )}
                       </div>
 
-                      <label className={`flex items-center justify-center w-full py-4 rounded-lg border-2 cursor-pointer transition-all font-bold text-base shadow-sm ${files[item.id] ? 'bg-green-50 border-green-500 text-green-700' : 'bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100'}`}>
-                        {files[item.id] ? '✅ Refazer Foto' : '📷 Abrir Câmera'}
-                        {/* ACCEPTS IMAGE E FORÇA CÂMERA */}
-                        <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handleFileChange(e, item.id)} />
-                      </label>
+                      {/* CONTROLE DE BOTÕES DA FOTO */}
+                      {files[item.id] ? (
+                        <div className="flex gap-2 w-full">
+                          <label className="flex-1 flex items-center justify-center py-3 rounded-lg border-2 bg-green-50 border-green-500 text-green-700 font-bold text-sm cursor-pointer shadow-sm hover:bg-green-100 transition">
+                            ✅ Refazer
+                            <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handleFileChange(e, item.id)} />
+                          </label>
+                          <button 
+                            type="button" 
+                            onClick={() => setFullScreenImage(filePreviews[item.id])} 
+                            className="flex-1 flex items-center justify-center py-3 rounded-lg border-2 bg-blue-50 border-blue-400 text-blue-700 font-bold text-sm cursor-pointer shadow-sm hover:bg-blue-100 transition"
+                          >
+                            🔍 Ver Foto
+                          </button>
+                        </div>
+                      ) : (
+                        <label className="flex items-center justify-center w-full py-4 rounded-lg border-2 bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100 cursor-pointer transition-all font-bold text-base shadow-sm">
+                          📷 Abrir Câmera
+                          <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handleFileChange(e, item.id)} />
+                        </label>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -356,7 +452,6 @@ export default function ChecklistApp() {
 
                 <label className={`flex items-center justify-center w-full py-4 rounded-lg border-2 cursor-pointer transition-all font-bold text-base shadow-sm ${video360 ? 'bg-green-50 border-green-500 text-green-700' : 'bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100'}`}>
                   {video360 ? '✅ Gravar Novo Vídeo' : '🎥 Gravar Vídeo 360°'}
-                  {/* ACCEPTS VIDEO E FORÇA CÂMERA */}
                   <input type="file" accept="video/*" capture="environment" className="hidden" onChange={handleVideoChange} />
                 </label>
               </div>
@@ -479,7 +574,7 @@ export default function ChecklistApp() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {photoCategories.flatMap(c => c.items).map(item => (
                   <div key={item.id} className="border border-slate-200 rounded-lg p-2 bg-slate-50 shadow-sm flex flex-col">
-                    <img src={filePreviews[item.id]} alt={item.label} className="w-full h-24 object-cover rounded mb-2 border border-slate-200" />
+                    <img src={filePreviews[item.id]} alt={item.label} className="w-full h-24 object-contain bg-black rounded mb-2 border border-slate-200 cursor-pointer" onClick={() => setFullScreenImage(filePreviews[item.id])} />
                     <span className="text-[11px] font-bold text-slate-700 text-center leading-tight">{item.label}</span>
                   </div>
                 ))}
