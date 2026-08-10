@@ -1,54 +1,123 @@
 import React, { useState, useEffect } from 'react';
 
-// Webhook oficial de Produção
-const WEBHOOK_URL = "https://webhook.lynkapay.com.br/webhook/receber-laudo";
+// --- CONFIGURAÇÃO DAS FOTOS E EXEMPLOS ---
+const photoCategories = [
+  {
+    title: 'Geral',
+    items: [
+      { id: 'foto_selfie', label: 'Selfie com o Veículo', instruction: 'Tire uma selfie onde seu rosto e a placa do carro apareçam.', exampleImg: '/selfie.png' }
+    ]
+  },
+  {
+    title: 'Veículo Externo',
+    items: [
+      { id: 'foto_frente', label: 'Frente do Veículo', instruction: 'Pegue o para-choque e a placa.', exampleImg: '/frente.png' },
+      { id: 'foto_traseira', label: 'Traseira do Veículo', instruction: 'Pegue o para-choque traseiro e a placa.', exampleImg: '/traseira.png' },
+      { id: 'foto_lat_esq', label: 'Lateral Esquerda', instruction: 'Vidros FECHADOS. Pegue o carro de ponta a ponta.', exampleImg: '/lateral esquerda.png' },
+      { id: 'foto_lat_dir', label: 'Lateral Direita', instruction: 'Vidros FECHADOS. Pegue o carro de ponta a ponta.', exampleImg: '/lateral esquerda.png' } 
+    ]
+  },
+  {
+    title: 'Veículo Interno',
+    items: [
+      { id: 'foto_painel', label: 'Painel Ligado', instruction: 'Gire a chave. Mostre a quilometragem e luzes acesas.', exampleImg: '/painel ligado.png' },
+      { id: 'foto_int_frente', label: 'Interior (Frente)', instruction: 'Mostre o estado dos bancos dianteiros e painel.', exampleImg: '/interna dianteira.png' },
+      { id: 'foto_int_tras', label: 'Interior (Traseira)', instruction: 'Mostre o estado dos bancos traseiros.', exampleImg: '/interna traseira.png' }
+    ]
+  },
+  {
+    title: 'Mecânica (Cofre do Motor)',
+    items: [
+      { id: 'foto_motor', label: 'Motor Completo', instruction: 'Abra o capô e tire uma foto geral do motor.', exampleImg: '/motor geral.png' },
+      { id: 'foto_oleo', label: 'Vareta de Óleo', instruction: 'Puxe a vareta, limpe, coloque e puxe de novo. Fotografe a marcação.', exampleImg: '/nivel oleo.png' },
+      { id: 'foto_agua', label: 'Reservatório de Água', instruction: 'Fotografe mostrando a marcação de MIN e MAX.', exampleImg: '/reservatorio agua.png' }
+    ]
+  },
+  {
+    title: 'Pneus e Estepe',
+    items: [
+      { id: 'foto_pneu_de', label: 'Dianteiro Esquerdo', instruction: 'Mostre o desgaste da borracha (sulcos).', exampleImg: '/pneu.png' },
+      { id: 'foto_pneu_dd', label: 'Dianteiro Direito', instruction: 'Mostre o desgaste da borracha (sulcos).', exampleImg: '/pneu.png' },
+      { id: 'foto_pneu_te', label: 'Traseiro Esquerdo', instruction: 'Mostre o desgaste da borracha (sulcos).', exampleImg: '/pneu.png' },
+      { id: 'foto_pneu_td', label: 'Traseiro Direito', instruction: 'Mostre o desgaste da borracha (sulcos).', exampleImg: '/pneu.png' },
+      { id: 'foto_estepe_pneu', label: 'Foto do Estepe', instruction: 'Fotografe o estepe dentro do porta-malas mostrando o estado.', exampleImg: '/pneu.png' }
+    ]
+  }
+];
 
-export default function App() {
-  const [locationText, setLocationText] = useState("Obtendo GPS...");
-  const [gpsCoords, setGpsCoords] = useState(null);
-  const [gpsActive, setGpsActive] = useState(false);
-  const [loading, setLoading] = useState(false);
+const lightsChecklist = [
+  { id: 'luz_farol_baixo', label: 'Farol Baixo' },
+  { id: 'luz_farol_alto', label: 'Farol Alto' },
+  { id: 'luz_lanterna_diant', label: 'Lanterna Dianteira' },
+  { id: 'luz_milha', label: 'Farol de Milha (Se houver)' },
+  { id: 'luz_lanterna_tras', label: 'Lanternas Traseiras' },
+  { id: 'luz_setas', label: 'Setas (Piscas)' },
+  { id: 'luz_freio', label: 'Luz de Freio' },
+  { id: 'luz_re', label: 'Luz de Ré' }
+];
 
-  const [formData, setFormData] = useState({
-    nivelOleo: 'No Nível',
-    nivelAgua: 'No Nível',
-    obsAgua: '',
-    usoEstepe: 'Não',
+export default function ChecklistApp() {
+  const [step, setStep] = useState(1); 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Estados dos Dados Documentais
+  const [docInfo, setDocInfo] = useState({ 
+    empresa_nome: 'Carregando Empresa...', 
+    empresa_cnpj: '',
+    empresa_tel: '',
+    empresa_email: '',
+    motorista_nome: '', 
+    motorista_tel: '',
+    veiculo_placa: '',
+    veiculo_modelo: '',
+    data_atual: ''
   });
 
-  const [photos, setPhotos] = useState({});
+  const [files, setFiles] = useState({});
+  const [filePreviews, setFilePreviews] = useState({});
   const [video360, setVideo360] = useState(null);
+  const [videoPreview, setVideoPreview] = useState(null);
+  const [levels, setLevels] = useState({ oleo: '', agua: '', agua_obs: '' });
+  const [estepe, setEstepe] = useState({ usado: '', motivo: '', pneu_avaria: '' });
+  const [lights, setLights] = useState({});
+  const [obsLuzes, setObsLuzes] = useState('');
+  const [obsGerais, setObsGerais] = useState('');
 
-  // Mapeamento dos 12 itens visuais da vistoria
-  const photoFields = [
-    { key: 'frente', label: 'Frente do Veículo', icon: '🚘' },
-    { key: 'traseira', label: 'Traseira do Veículo', icon: '🚗' },
-    { key: 'lateralEsquerda', label: 'Lateral Esquerda', icon: '🚙' },
-    { key: 'pneu', label: 'Pneus e Rodas', icon: '🛞' },
-    { key: 'estepe', label: 'Estepe', icon: '🛞' },
-    { key: 'internaDianteira', label: 'Interna Dianteira', icon: '🪑' },
-    { key: 'internaTraseira', label: 'Interna Traseira', icon: '🪑' },
-    { key: 'painelLigado', label: 'Painel (Hodômetro)', icon: '⏱️' },
-    { key: 'motorGeral', label: 'Motor Geral', icon: '⚙️' },
-    { key: 'nivelOleo', label: 'Nível do Óleo', icon: '🛢️' },
-    { key: 'reservatorioAgua', label: 'Reservatório de Água', icon: '💧' },
-    { key: 'selfie', label: 'Selfie com o Veículo', icon: '🤳' },
-  ];
+  // Estados de GPS
+  const [locationText, setLocationText] = useState("Obtendo GPS...");
+  const [gpsCoords, setGpsCoords] = useState(null);
 
-  // Captura localização GPS em tempo real ao abrir o app
+  // Inicializa dados da URL e GPS
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const hoje = new Date();
+    const dataFormatada = hoje.toLocaleDateString('pt-BR') + ' às ' + hoje.toLocaleTimeString('pt-BR', { hour: '2-digit', minute:'2-digit' });
+
+    setDocInfo({
+      empresa_nome: params.get('empresa') || 'AGSEG Locadora',
+      empresa_cnpj: params.get('cnpj') || '49.401.572/0001-71',
+      empresa_tel: params.get('empresa_tel') || '(11) 94365-3061',
+      empresa_email: params.get('email') || 'contato@agseg.com.br',
+      motorista_nome: params.get('motorista') || 'Motorista Não Identificado',
+      motorista_tel: params.get('tel') || 'Não Informado',
+      veiculo_placa: params.get('placa') || 'XXX-0000',
+      veiculo_modelo: params.get('modelo') || 'Veículo Padrão',
+      data_atual: dataFormatada
+    });
+    
+    const initialLights = {};
+    lightsChecklist.forEach(l => initialLights[l.id] = 'OK');
+    setLights(initialLights);
+
+    // GPS
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const coords = `${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}`;
           setGpsCoords(coords);
-          setLocationText(`GPS Ativo: ${coords}`);
-          setGpsActive(true);
+          setLocationText(`GPS: ${coords}`);
         },
-        () => {
-          setLocationText("GPS: Não autorizado");
-          setGpsActive(false);
-        },
+        () => setLocationText("GPS: Não autorizado"),
         { enableHighAccuracy: true, timeout: 10000 }
       );
     } else {
@@ -56,7 +125,15 @@ export default function App() {
     }
   }, []);
 
-  // Processa a foto e aplica o Carimbo de Data, Hora e GPS via Canvas
+  // Transforma Base64 em Arquivo (File) para envio no FormData
+  const dataURLtoFile = (dataurl, filename) => {
+    let arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
+    bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
+    while(n--){ u8arr[n] = bstr.charCodeAt(n); }
+    return new File([u8arr], filename, {type:mime});
+  };
+
+  // Função para carimbar foto com Data, Hora e GPS
   const processImageWithWatermark = (file) => {
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -70,29 +147,23 @@ export default function App() {
           canvas.height = img.height;
           const ctx = canvas.getContext("2d");
 
-          // Desenha imagem original
           ctx.drawImage(img, 0, 0);
 
-          // Configurações da tarja e texto do carimbo
           const bannerHeight = Math.max(60, img.height * 0.08);
           const fontSize = Math.max(18, Math.floor(bannerHeight * 0.35));
 
-          // Tarja preta semitransparente no rodapé
-          ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
+          ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
           ctx.fillRect(0, img.height - bannerHeight, img.width, bannerHeight);
 
-          // Texto do carimbo
-          ctx.fillStyle = "#38BDF8"; // Azul celeste
+          ctx.fillStyle = "#FFFFFF";
           ctx.font = `bold ${fontSize}px sans-serif`;
 
           const now = new Date().toLocaleString("pt-BR");
-          const line1 = `ORIONSAT VISTORIA | ${now}`;
-          const line2 = gpsCoords ? `LAT/LONG: ${gpsCoords}` : `LOCAL: ${locationText}`;
+          const line1 = `VISTORIA - ${now}`;
+          const line2 = gpsCoords ? `GPS: ${gpsCoords}` : `GPS: ${locationText}`;
 
-          ctx.fillText(line1, 24, img.height - bannerHeight + fontSize + 6);
-          
-          ctx.fillStyle = "#FFFFFF";
-          ctx.fillText(line2, 24, img.height - (bannerHeight / 2) + (fontSize / 2));
+          ctx.fillText(line1, 20, img.height - bannerHeight + fontSize + 5);
+          ctx.fillText(line2, 20, img.height - (bannerHeight / 2) + (fontSize / 2));
 
           resolve(canvas.toDataURL("image/jpeg", 0.85));
         };
@@ -100,311 +171,370 @@ export default function App() {
     });
   };
 
-  // Handler para captura de foto
-  const handlePhotoChange = async (key, file) => {
-    if (!file) return;
-    const watermarkedImage = await processImageWithWatermark(file);
-    setPhotos((prev) => ({ ...prev, [key]: watermarkedImage }));
+  // Modificado para carimbar foto antes de salvar
+  const handleFileChange = async (e, id) => {
+    const file = e.target.files[0];
+    if (file) {
+      const watermarkedDataUrl = await processImageWithWatermark(file);
+      const watermarkedFile = dataURLtoFile(watermarkedDataUrl, file.name);
+
+      setFiles(prev => ({ ...prev, [id]: watermarkedFile }));
+      setFilePreviews(prev => ({ ...prev, [id]: watermarkedDataUrl }));
+    }
   };
 
-  // Handler para captura de vídeo
-  const handleVideoChange = (file) => {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onloadend = () => {
-      setVideo360(reader.result);
-    };
-  };
-
-  const totalPhotos = photoFields.length;
-  const completedPhotos = Object.keys(photos).length;
-  const progressPercentage = Math.round((completedPhotos / totalPhotos) * 100);
-
-  // Envio dos dados para o n8n
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    if (completedPhotos < totalPhotos) {
-      if (!confirm(`Você capturou ${completedPhotos} de ${totalPhotos} fotos. Deseja enviar mesmo assim?`)) {
+  const handleVideoChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 50 * 1024 * 1024) {
+        alert("O vídeo é muito grande! Grave um vídeo mais curto (até 30 segundos).");
         return;
       }
+      setVideo360(file);
+      setVideoPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleReview = (e) => {
+    e.preventDefault();
+    const totalPhotos = photoCategories.reduce((acc, cat) => acc + cat.items.length, 0);
+    const uploadedPhotos = Object.keys(files).length;
+    
+    if (uploadedPhotos < totalPhotos) {
+      alert(`Atenção: Você tirou ${uploadedPhotos} de ${totalPhotos} fotos obrigatórias. Por favor, complete o checklist.`);
+      return;
+    }
+    if (!video360) {
+      alert('Por favor, grave o Vídeo 360° do veículo.');
+      return;
+    }
+    if (!levels.oleo || !levels.agua || !estepe.usado) {
+      alert('Por favor, preencha todos os campos de mecânica e estepe.');
+      return;
+    }
+    setStep(2); 
+    window.scrollTo(0, 0);
+  };
+
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    
+    const dataToSend = new FormData();
+    dataToSend.append('empresa', docInfo.empresa_nome);
+    dataToSend.append('cnpj', docInfo.empresa_cnpj);
+    dataToSend.append('motorista', docInfo.motorista_nome);
+    dataToSend.append('telefone', docInfo.motorista_tel);
+    dataToSend.append('placa', docInfo.veiculo_placa);
+    dataToSend.append('modelo', docInfo.veiculo_modelo);
+    dataToSend.append('data_vistoria', docInfo.data_atual);
+    dataToSend.append('gps', gpsCoords || locationText); // GPS salvo no formulário
+
+    dataToSend.append('nivel_oleo', levels.oleo);
+    dataToSend.append('nivel_agua', levels.agua);
+    dataToSend.append('obs_agua', levels.agua_obs);
+    dataToSend.append('estepe_usado', estepe.usado);
+    dataToSend.append('estepe_motivo', estepe.motivo);
+    dataToSend.append('estepe_pneu_avaria', estepe.pneu_avaria);
+    
+    dataToSend.append('luzes_json', JSON.stringify(lights));
+    dataToSend.append('obs_luzes', obsLuzes);
+    dataToSend.append('obs_gerais', obsGerais);
+
+    Object.keys(files).forEach(key => {
+      dataToSend.append(key, files[key]);
+    });
+    
+    if (video360) {
+      dataToSend.append('video_360', video360);
     }
 
-    setLoading(true);
-
-    const payload = {
-      ...formData,
-      gps: gpsCoords || locationText,
-      dataHoraEnvio: new Date().toLocaleString("pt-BR"),
-      fotos: photos,
-      video360: video360,
-    };
-
     try {
-      const response = await fetch(WEBHOOK_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+      // Endpoint ATUALIZADO para a Lynkapay (Produção)
+      const resposta = await fetch('https://webhook.lynkapay.com.br/webhook/receber-laudo', {
+        method: 'POST',
+        body: dataToSend,
       });
 
-      if (response.ok) {
-        alert("✅ Vistoria registrada e enviada com sucesso!");
+      if (resposta.ok) {
+        alert('✅ Laudo enviado com sucesso! Boa viagem.');
+        setStep(1);
       } else {
-        alert("⚠️ Ocorreu um erro no servidor ao receber os dados.");
+        alert('❌ Erro no servidor. Tente enviar novamente.');
       }
     } catch (error) {
-      console.error(error);
-      alert("❌ Erro de conexão com o servidor.");
+      alert('❌ Erro de conexão. Verifique sua internet.');
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 pb-12 font-sans text-slate-100">
-      {/* Header Estilizado */}
-      <header className="bg-slate-800 border-b border-slate-700 sticky top-0 z-50 px-4 py-4 shadow-lg">
-        <div className="max-w-xl mx-auto flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-extrabold tracking-tight text-white flex items-center gap-2">
-              <span className="text-blue-500">OrionSat</span> Vistoria
-            </h1>
-            <p className="text-xs text-slate-400 mt-0.5">Checklist Digital de Veículo</p>
+    <div className="min-h-screen bg-gray-100 p-2 md:p-4 font-sans text-gray-800 pb-20">
+      <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-md overflow-hidden">
+        
+        {/* CABEÇALHO DO LAUDO */}
+        <div className="bg-slate-900 text-white p-6 border-b-[6px] border-blue-600">
+          <div className="text-center mb-6">
+            <h1 className="text-3xl font-black uppercase tracking-wider">{docInfo.empresa_nome}</h1>
+            <p className="text-blue-300 font-bold uppercase tracking-widest text-sm mt-1">Laudo de Vistoria Oficial</p>
           </div>
           
-          {/* Badge de GPS */}
-          <div className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 border ${
-            gpsActive ? 'bg-emerald-950/80 border-emerald-500 text-emerald-400' : 'bg-amber-950/80 border-amber-500 text-amber-400'
-          }`}>
-            <span className={`w-2 h-2 rounded-full ${gpsActive ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`}></span>
-            {gpsActive ? 'GPS Ativo' : 'Buscando GPS'}
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-xl mx-auto px-4 mt-6 space-y-6">
-        {/* Barra de Progresso Visível */}
-        <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-sm">
-          <div className="flex justify-between items-center text-xs font-semibold mb-2">
-            <span className="text-slate-300">Progresso da Vistoria</span>
-            <span className="text-blue-400 font-bold">{completedPhotos} de {totalPhotos} Fotos ({progressPercentage}%)</span>
-          </div>
-          <div className="w-full bg-slate-700 h-2.5 rounded-full overflow-hidden">
-            <div 
-              className="bg-blue-500 h-full transition-all duration-300 ease-out" 
-              style={{ width: `${progressPercentage}%` }}
-            ></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm bg-slate-800 p-4 rounded-lg border border-slate-700">
+            <div>
+              <p className="text-slate-400 font-bold uppercase mb-1 text-xs">Dados da Locadora</p>
+              <p>CNPJ: <span className="font-medium">{docInfo.empresa_cnpj}</span></p>
+              <p>Email: <span className="font-medium">{docInfo.empresa_email}</span></p>
+              <p>Tel: <span className="font-medium">{docInfo.empresa_tel}</span></p>
+            </div>
+            <div>
+              <p className="text-slate-400 font-bold uppercase mb-1 text-xs">Registro de Vistoria</p>
+              <p>Data: <span className="font-medium">{docInfo.data_atual}</span></p>
+              <p>Local: <span className="font-medium">{locationText}</span></p>
+            </div>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Card: Condições Mecânicas */}
-          <section className="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-md">
-            <h2 className="text-base font-bold text-white mb-4 flex items-center gap-2">
-              <span className="p-1.5 bg-blue-600/20 text-blue-400 rounded-lg">⚙️</span>
-              Condições Mecânicas e Níveis
-            </h2>
+        {/* DADOS DO VEÍCULO E CONDUTOR */}
+        <div className="p-4 md:p-6 bg-slate-50 border-b border-slate-200">
+          <div className="grid grid-cols-2 gap-y-4 gap-x-4">
+            <div>
+              <span className="block text-xs font-bold text-slate-500 uppercase">Condutor Responsável</span>
+              <span className="font-bold text-slate-800 text-lg">{docInfo.motorista_nome}</span>
+              <span className="block text-sm text-slate-600">{docInfo.motorista_tel}</span>
+            </div>
+            <div className="text-right">
+              <span className="block text-xs font-bold text-slate-500 uppercase">Veículo</span>
+              <span className="font-bold text-slate-800 text-lg">{docInfo.veiculo_modelo}</span>
+              <span className="block mt-1"><span className="bg-slate-800 text-white font-bold px-3 py-1 rounded text-sm">{docInfo.veiculo_placa}</span></span>
+            </div>
+          </div>
+        </div>
+
+        {/* TELA 1: PREENCHIMENTO */}
+        {step === 1 && (
+          <form onSubmit={handleReview} className="p-4 md:p-6 space-y-8">
+            
+            {/* FOTOS */}
+            {photoCategories.map((category, catIdx) => (
+              <div key={catIdx} className="space-y-4">
+                <h2 className="text-xl font-bold text-slate-800 border-b-2 pb-2 border-slate-200">{category.title}</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {category.items.map((item) => (
+                    <div key={item.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col">
+                      <h3 className="font-bold text-slate-800 text-lg mb-1">{item.label}</h3>
+                      <p className="text-sm text-slate-600 mb-4 flex-grow">{item.instruction}</p>
+                      
+                      <div className="rounded-lg overflow-hidden border-2 border-slate-200 mb-4 bg-slate-100 flex items-center justify-center h-40 relative">
+                        {filePreviews[item.id] ? (
+                          <img src={filePreviews[item.id]} alt="Preview" className="w-full h-full object-cover" />
+                        ) : (
+                          <img src={item.exampleImg} alt="Exemplo" className="w-full h-full object-cover opacity-90" />
+                        )}
+                      </div>
+
+                      <label className={`flex items-center justify-center w-full py-4 rounded-lg border-2 cursor-pointer transition-all font-bold text-base shadow-sm ${files[item.id] ? 'bg-green-50 border-green-500 text-green-700' : 'bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100'}`}>
+                        {files[item.id] ? '✅ Refazer Foto' : '📷 Abrir Câmera'}
+                        {/* ACCEPTS IMAGE E FORÇA CÂMERA */}
+                        <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handleFileChange(e, item.id)} />
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+
+            {/* VÍDEO 360 */}
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold text-slate-800 border-b-2 pb-2 border-slate-200">Vídeo Externo</h2>
+              <div className="bg-slate-50 p-5 rounded-xl border border-slate-200">
+                <h3 className="font-bold text-slate-800 text-lg mb-1">📹 Vídeo 360° Obrigatório</h3>
+                <p className="text-sm text-slate-600 mb-4">Grave um vídeo contínuo de 20 a 30 segundos dando uma volta completa ao redor do veículo para registrar a integridade da lataria.</p>
+                
+                {videoPreview && (
+                  <video src={videoPreview} controls className="w-full h-48 object-cover rounded-lg border border-slate-300 mb-4 shadow-sm" />
+                )}
+
+                <label className={`flex items-center justify-center w-full py-4 rounded-lg border-2 cursor-pointer transition-all font-bold text-base shadow-sm ${video360 ? 'bg-green-50 border-green-500 text-green-700' : 'bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100'}`}>
+                  {video360 ? '✅ Gravar Novo Vídeo' : '🎥 Gravar Vídeo 360°'}
+                  {/* ACCEPTS VIDEO E FORÇA CÂMERA */}
+                  <input type="file" accept="video/*" capture="environment" className="hidden" onChange={handleVideoChange} />
+                </label>
+              </div>
+            </div>
+
+            {/* PERGUNTA ESTEPE */}
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold text-slate-800 border-b-2 pb-2 border-slate-200">Estepe</h2>
+              <div className="bg-slate-50 p-5 rounded-xl border border-slate-200">
+                <label className="block font-bold text-slate-800 mb-3 text-lg">O estepe foi utilizado recentemente?</label>
+                <div className="flex gap-3 mb-4">
+                  {['Sim', 'Não'].map(opt => (
+                    <label key={opt} className={`flex-1 text-center py-3 rounded-lg border-2 cursor-pointer font-bold text-base transition-colors ${estepe.usado === opt ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
+                      <input type="radio" name="estepe" className="hidden" value={opt} onChange={(e) => setEstepe({...estepe, usado: e.target.value})} />
+                      {opt}
+                    </label>
+                  ))}
+                </div>
+
+                {estepe.usado === 'Sim' && (
+                  <div className="space-y-4 mt-4 p-4 bg-white border border-red-200 rounded-lg shadow-inner">
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-2">Motivo da utilização:</label>
+                      <input type="text" className="w-full p-3 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" placeholder="Ex: Pneu furou no buraco, rasgou..." value={estepe.motivo} onChange={(e) => setEstepe({...estepe, motivo: e.target.value})} />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-2">Qual pneu teve avaria?</label>
+                      <select className="w-full p-3 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white" value={estepe.pneu_avaria} onChange={(e) => setEstepe({...estepe, pneu_avaria: e.target.value})}>
+                        <option value="">Selecione o pneu...</option>
+                        <option value="Dianteiro Esquerdo">Dianteiro Esquerdo</option>
+                        <option value="Dianteiro Direito">Dianteiro Direito</option>
+                        <option value="Traseiro Esquerdo">Traseiro Esquerdo</option>
+                        <option value="Traseiro Direito">Traseiro Direito</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* MECÂNICA */}
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold text-slate-800 border-b-2 pb-2 border-slate-200">Mecânica Básica</h2>
+              <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 space-y-5">
+                <div>
+                  <label className="block font-bold text-slate-800 mb-3 text-lg">Nível do Óleo do Motor</label>
+                  <div className="flex gap-2">
+                    {['Baixo', 'No Nível', 'Alto'].map(opt => (
+                      <label key={opt} className={`flex-1 text-center py-2 rounded-lg border-2 cursor-pointer font-bold text-sm transition-colors ${levels.oleo === opt ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-slate-300 text-slate-600'}`}>
+                        <input type="radio" name="oleo" className="hidden" value={opt} onChange={(e) => setLevels({...levels, oleo: e.target.value})} />
+                        {opt}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                
+                <div className="pt-4 border-t border-slate-200">
+                  <label className="block font-bold text-slate-800 mb-3 text-lg">Nível da Água (Arrefecimento)</label>
+                  <div className="flex gap-2 mb-4">
+                    {['Baixo', 'No Nível', 'Alto'].map(opt => (
+                      <label key={opt} className={`flex-1 text-center py-2 rounded-lg border-2 cursor-pointer font-bold text-sm transition-colors ${levels.agua === opt ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-slate-300 text-slate-600'}`}>
+                        <input type="radio" name="agua" className="hidden" value={opt} onChange={(e) => setLevels({...levels, agua: e.target.value})} />
+                        {opt}
+                      </label>
+                    ))}
+                  </div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Precisa completar a água com frequência?</label>
+                  <textarea rows="2" className="w-full p-3 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" placeholder="Se sim, descreva aqui (pode indicar vazamento)..." value={levels.agua_obs} onChange={(e) => setLevels({...levels, agua_obs: e.target.value})}></textarea>
+                </div>
+              </div>
+            </div>
+
+            {/* LUZES E OBS */}
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold text-slate-800 border-b-2 pb-2 border-slate-200">Verificação de Luzes</h2>
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                {lightsChecklist.map((light, index) => (
+                  <div key={light.id} className={`p-4 flex items-center justify-between ${index !== lightsChecklist.length -1 ? 'border-b border-slate-100' : ''}`}>
+                    <span className="font-bold text-slate-700">{light.label}</span>
+                    <select className={`text-sm border-2 rounded-lg p-2 outline-none font-bold cursor-pointer ${lights[light.id] === 'OK' ? 'bg-green-50 text-green-700 border-green-200' : lights[light.id] === 'Avaria' ? 'bg-red-50 text-red-700 border-red-300' : 'bg-slate-100 text-slate-600 border-slate-200'}`} value={lights[light.id]} onChange={(e) => setLights({...lights, [light.id]: e.target.value})}>
+                      <option value="OK">OK</option>
+                      <option value="Avaria">Avaria / Queimada</option>
+                      <option value="N/A">Não tem</option>
+                    </select>
+                  </div>
+                ))}
+              </div>
+              <textarea rows="2" className="w-full p-3 border border-slate-300 rounded-lg outline-none mt-2" placeholder="Descreva se alguma luz estiver piscando rápido ou com defeito..." value={obsLuzes} onChange={(e) => setObsLuzes(e.target.value)}></textarea>
+              
+              <div className="pt-6">
+                <label className="block text-lg font-bold text-slate-800 mb-3 border-b-2 pb-2 border-slate-200">Observações Finais do Veículo</label>
+                <textarea rows="4" className="w-full p-4 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 shadow-sm" placeholder="Relate detalhadamente avarias, arranhões, barulhos estranhos ou problemas gerais no veículo..." value={obsGerais} onChange={(e) => setObsGerais(e.target.value)}></textarea>
+              </div>
+            </div>
+
+            <button type="submit" className="w-full font-black text-xl p-5 rounded-xl text-white bg-blue-600 hover:bg-blue-700 shadow-lg transition-transform active:scale-95">
+              Continuar para Revisão Final ➔
+            </button>
+          </form>
+        )}
+
+        {/* TELA 2: REVISÃO */}
+        {step === 2 && (
+          <div className="p-4 md:p-6 space-y-8 animate-fade-in">
+            <div className="bg-yellow-50 border-l-4 border-yellow-500 p-5 rounded-r-lg text-yellow-800 shadow-sm">
+              <h3 className="font-black text-lg">Atenção, {docInfo.motorista_nome}!</h3>
+              <p className="text-sm mt-2 font-medium">Você está prestes a enviar um documento oficial. Revise se as fotos e o vídeo estão nítidos e as informações corretas. <br/>A locadora utilizará este laudo para auditoria da frota.</p>
+            </div>
+            
+            <div className="space-y-4">
+              <h3 className="font-black text-xl text-slate-800 border-b-2 pb-2">Evidências Capturadas</h3>
+              
+              {videoPreview && (
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 shadow-sm mb-4">
+                  <p className="text-xs font-bold text-slate-700 uppercase mb-2">Vídeo 360° do Veículo</p>
+                  <video src={videoPreview} controls className="w-full h-32 object-cover rounded border border-slate-300" />
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {photoCategories.flatMap(c => c.items).map(item => (
+                  <div key={item.id} className="border border-slate-200 rounded-lg p-2 bg-slate-50 shadow-sm flex flex-col">
+                    <img src={filePreviews[item.id]} alt={item.label} className="w-full h-24 object-cover rounded mb-2 border border-slate-200" />
+                    <span className="text-[11px] font-bold text-slate-700 text-center leading-tight">{item.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
 
             <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1.5 uppercase tracking-wider">
-                  Nível do Óleo
-                </label>
-                <select 
-                  value={formData.nivelOleo} 
-                  onChange={(e) => setFormData({...formData, nivelOleo: e.target.value})}
-                  className="w-full bg-slate-900 border border-slate-700 text-white rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                >
-                  <option value="No Nível">🟢 No Nível</option>
-                  <option value="Baixo">🟡 Baixo</option>
-                  <option value="Crítico">🔴 Crítico</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1.5 uppercase tracking-wider">
-                  Nível de Água / Radiador
-                </label>
-                <select 
-                  value={formData.nivelAgua} 
-                  onChange={(e) => setFormData({...formData, nivelAgua: e.target.value})}
-                  className="w-full bg-slate-900 border border-slate-700 text-white rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                >
-                  <option value="No Nível">🟢 No Nível</option>
-                  <option value="Completado">🟡 Completado</option>
-                  <option value="Vazamento">🔴 Vazamento Identificado</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1.5 uppercase tracking-wider">
-                  Observações da Água (Opcional)
-                </label>
-                <input 
-                  type="text" 
-                  value={formData.obsAgua}
-                  onChange={(e) => setFormData({...formData, obsAgua: e.target.value})}
-                  placeholder="Ex: Foi adicionado 500ml de aditivo"
-                  className="w-full bg-slate-900 border border-slate-700 text-white rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none placeholder-slate-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1.5 uppercase tracking-wider">
-                  Uso do Estepe
-                </label>
-                <select 
-                  value={formData.usoEstepe} 
-                  onChange={(e) => setFormData({...formData, usoEstepe: e.target.value})}
-                  className="w-full bg-slate-900 border border-slate-700 text-white rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                >
-                  <option value="Não">🟢 Não Utilizado</option>
-                  <option value="Sim">🔴 Estepe em Uso no Veículo</option>
-                </select>
-              </div>
-            </div>
-          </section>
-
-          {/* Grid de Cards de Fotos */}
-          <section className="space-y-3">
-            <h2 className="text-base font-bold text-white flex items-center gap-2">
-              <span className="p-1.5 bg-blue-600/20 text-blue-400 rounded-lg">📸</span>
-              Registro Fotográfico Obrigatório
-            </h2>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {photoFields.map((field) => {
-                const isDone = !!photos[field.key];
-                return (
-                  <div 
-                    key={field.key} 
-                    className={`relative p-4 rounded-xl border transition-all ${
-                      isDone 
-                        ? 'bg-slate-800/90 border-emerald-500/60' 
-                        : 'bg-slate-800 border-slate-700 hover:border-slate-600'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm font-bold text-white flex items-center gap-2">
-                        <span>{field.icon}</span> {field.label}
-                      </span>
-                      {isDone ? (
-                        <span className="bg-emerald-500/20 text-emerald-400 text-xs px-2 py-0.5 rounded-full font-bold flex items-center gap-1 border border-emerald-500/30">
-                          ✓ Ok
-                        </span>
-                      ) : (
-                        <span className="bg-slate-700 text-slate-400 text-xs px-2 py-0.5 rounded-full">
-                          Pendente
-                        </span>
-                      )}
+              <h3 className="font-black text-xl text-slate-800 border-b-2 pb-2">Resumo das Respostas</h3>
+              <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 text-base space-y-3 shadow-sm">
+                
+                <p><strong>Nível de Óleo:</strong> <span className="text-blue-700 font-bold">{levels.oleo}</span></p>
+                <p><strong>Nível de Água:</strong> <span className="text-blue-700 font-bold">{levels.agua}</span></p>
+                {levels.agua_obs && <p className="text-red-600 bg-red-50 p-2 rounded"><strong>Obs Água:</strong> {levels.agua_obs}</p>}
+                
+                <div className="pt-3 border-t border-slate-200 mt-3">
+                  <p><strong>Uso do Estepe:</strong> {estepe.usado === 'Sim' ? <span className="text-red-600 font-bold">Sim</span> : <span className="text-green-600 font-bold">Não</span>}</p>
+                  {estepe.usado === 'Sim' && (
+                    <div className="pl-4 text-red-700 mt-2 border-l-4 border-red-400 bg-red-50 p-3 rounded">
+                      <p><strong>Motivo:</strong> {estepe.motivo}</p>
+                      <p className="mt-1"><strong>Pneu com avaria:</strong> {estepe.pneu_avaria}</p>
                     </div>
-
-                    {/* Preview da foto se já capturada */}
-                    {isDone ? (
-                      <div className="relative rounded-lg overflow-hidden border border-slate-700 bg-slate-950">
-                        <img src={photos[field.key]} alt={field.label} className="w-full h-36 object-cover" />
-                        <label className="absolute bottom-2 right-2 bg-slate-900/90 hover:bg-slate-900 text-white text-xs px-3 py-1.5 rounded-lg border border-slate-600 cursor-pointer shadow-md font-semibold">
-                          📷 Refazer
-                          <input 
-                            type="file" 
-                            accept="image/*" 
-                            capture="environment"
-                            onChange={(e) => handlePhotoChange(field.key, e.target.files[0])}
-                            className="hidden"
-                          />
-                        </label>
-                      </div>
-                    ) : (
-                      /* Botão de acionamento da Câmera */
-                      <label className="flex flex-col items-center justify-center h-28 border-2 border-dashed border-slate-600 hover:border-blue-500 rounded-lg cursor-pointer bg-slate-900/50 hover:bg-slate-900 transition text-center p-2 group">
-                        <span className="text-2xl mb-1 group-hover:scale-110 transition-transform">📷</span>
-                        <span className="text-xs font-bold text-blue-400">Abrir Câmera</span>
-                        <span className="text-[10px] text-slate-500 mt-0.5">Captura em tempo real</span>
-                        <input 
-                          type="file" 
-                          accept="image/*" 
-                          capture="environment"
-                          onChange={(e) => handlePhotoChange(field.key, e.target.files[0])}
-                          className="hidden"
-                        />
-                      </label>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-
-          {/* Card: Vídeo 360° */}
-          <section className="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-md">
-            <h2 className="text-base font-bold text-white mb-2 flex items-center gap-2">
-              <span className="p-1.5 bg-blue-600/20 text-blue-400 rounded-lg">🎥</span>
-              Vídeo 360° do Veículo
-            </h2>
-            <p className="text-xs text-slate-400 mb-4">
-              Grave um vídeo contornando toda a lataria do veículo em um único take.
-            </p>
-
-            <div className="bg-slate-900 p-4 rounded-lg border border-slate-700 text-center">
-              {video360 ? (
-                <div className="space-y-3">
-                  <div className="p-3 bg-emerald-950/60 border border-emerald-500/40 rounded-lg text-emerald-400 text-xs font-bold flex items-center justify-center gap-2">
-                    <span>✓</span> Vídeo gravado e anexado com sucesso!
-                  </div>
-                  <label className="inline-block bg-slate-800 hover:bg-slate-700 text-white text-xs px-4 py-2 rounded-lg border border-slate-600 cursor-pointer font-semibold">
-                    🎥 Gravar Novamente
-                    <input 
-                      type="file" 
-                      accept="video/*" 
-                      capture="environment"
-                      onChange={(e) => handleVideoChange(e.target.files[0])}
-                      className="hidden"
-                    />
-                  </label>
+                  )}
                 </div>
-              ) : (
-                <label className="flex flex-col items-center justify-center py-6 cursor-pointer group">
-                  <span className="text-3xl mb-2 group-hover:scale-110 transition-transform">📹</span>
-                  <span className="text-sm font-bold text-blue-400">Gravar Vídeo 360°</span>
-                  <span className="text-xs text-slate-500 mt-1">Aciona a câmera de vídeo do aparelho</span>
-                  <input 
-                    type="file" 
-                    accept="video/*" 
-                    capture="environment"
-                    onChange={(e) => handleVideoChange(e.target.files[0])}
-                    className="hidden"
-                  />
-                </label>
-              )}
-            </div>
-          </section>
 
-          {/* Botão de Envio */}
-          <div className="pt-2">
-            <button 
-              type="submit" 
-              disabled={loading}
-              className={`w-full py-4 rounded-xl font-extrabold text-base shadow-xl transition-all flex items-center justify-center gap-2 ${
-                loading 
-                  ? 'bg-slate-700 text-slate-400 cursor-not-allowed' 
-                  : 'bg-emerald-600 hover:bg-emerald-500 text-white active:scale-[0.98]'
-              }`}
-            >
-              {loading ? (
-                <>
-                  <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                  Enviando Vistoria...
-                </>
-              ) : (
-                <>
-                  <span>🚀</span> Concluir e Enviar Laudo
-                </>
-              )}
-            </button>
+                <div className="pt-3 border-t border-slate-200 mt-3">
+                  <p className="font-bold mb-2">Problemas de Luzes:</p>
+                  <ul className="list-disc pl-6 text-red-600 font-medium">
+                    {lightsChecklist.filter(l => lights[l.id] === 'Avaria').map(l => (
+                       <li key={l.id}>{l.label}</li>
+                    ))}
+                    {lightsChecklist.filter(l => lights[l.id] === 'Avaria').length === 0 && <li className="text-green-600 list-none -ml-6 font-bold">✅ Nenhuma luz com avaria registrada.</li>}
+                  </ul>
+                  {obsLuzes && <p className="mt-2 text-sm text-slate-600"><strong>Obs Luzes:</strong> {obsLuzes}</p>}
+                </div>
+                
+                {obsGerais && (
+                  <div className="pt-3 border-t border-slate-200 mt-3 text-slate-800">
+                    <p className="font-bold">Observações Finais:</p>
+                    <p className="mt-2 italic bg-white p-3 border rounded">"{obsGerais}"</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-col md:flex-row gap-4 pt-6 border-t-2 border-slate-200">
+              <button type="button" onClick={() => setStep(1)} className="md:w-1/3 font-bold text-slate-700 bg-slate-200 hover:bg-slate-300 p-4 rounded-xl transition-colors">
+                ⬅ Voltar e Corrigir
+              </button>
+              <button onClick={handleSubmit} disabled={isSubmitting} className="md:w-2/3 font-black text-xl text-white bg-green-600 hover:bg-green-700 p-4 rounded-xl shadow-lg transition-transform active:scale-95 flex justify-center items-center">
+                {isSubmitting ? 'Enviando ao Servidor...' : '✅ Assinar e Emitir Laudo'}
+              </button>
+            </div>
           </div>
-        </form>
-      </main>
+        )}
+      </div>
     </div>
   );
 }
