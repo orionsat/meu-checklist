@@ -170,7 +170,6 @@ export default function ChecklistApp() {
     return new File([u8arr], filename, {type:mime});
   };
 
-  // Função para carimbar foto com QUEBRA DE LINHA AUTOMÁTICA
   const processImageWithWatermark = (file) => {
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -186,11 +185,9 @@ export default function ChecklistApp() {
 
           ctx.drawImage(img, 0, 0);
 
-          // Configura a fonte e tamanho dinâmico
           const fontSize = Math.max(16, Math.floor(img.height * 0.022));
           ctx.font = `bold ${fontSize}px sans-serif`;
 
-          // Lógica de Quebra de Linha (Word Wrap) para o Endereço
           const addressWords = `ENDEREÇO: ${locationText}`.split(' ');
           let addrLine = '';
           const addrLines = [];
@@ -205,30 +202,24 @@ export default function ChecklistApp() {
           }
           addrLines.push(addrLine);
 
-          // Calcula altura da tarja baseada na quantidade de linhas
           const totalLines = 2 + addrLines.length; 
           const lineHeight = fontSize * 1.4;
           const bannerHeight = (totalLines * lineHeight) + (fontSize * 1.5); 
 
-          // Desenha a Tarja Preta
           ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
           ctx.fillRect(0, img.height - bannerHeight, img.width, bannerHeight);
 
-          // Posição inicial do texto
           let currentY = img.height - bannerHeight + fontSize + 10;
           const now = new Date().toLocaleString("pt-BR");
 
-          // Linha 1: Vistoria + OS
           ctx.fillStyle = "#FFFFFF";
           ctx.fillText(`VISTORIA: ${now} | OS: ${deviceOS}`, 20, currentY);
           currentY += lineHeight;
           
-          // Linha 2: Coordenadas (Verde)
           ctx.fillStyle = "#A6E22E"; 
           ctx.fillText(`COORDENADAS: ${gpsCoords || 'Indisponível'}`, 20, currentY);
           currentY += lineHeight;
 
-          // Linha(s) 3+: Endereço Completo
           ctx.fillStyle = "#FFFFFF";
           for (let i = 0; i < addrLines.length; i++) {
             ctx.fillText(addrLines[i], 20, currentY);
@@ -338,7 +329,6 @@ export default function ChecklistApp() {
     }
   };
 
-  // TELA DE BLOQUEIO PARA COMPUTADORES (PC/MAC)
   if (!isMobileDevice) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 text-center">
@@ -357,11 +347,9 @@ export default function ChecklistApp() {
     );
   }
 
-  // TELA NORMAL DO APLICATIVO (PARA CELULARES)
   return (
     <div className="min-h-screen bg-gray-100 p-2 md:p-4 font-sans text-gray-800 pb-20 relative">
       
-      {/* MODAL DE FOTO EM TELA CHEIA */}
       {fullScreenImage && (
         <div className="fixed inset-0 z-[9999] bg-black bg-opacity-95 flex items-center justify-center p-4">
           <button 
@@ -376,7 +364,6 @@ export default function ChecklistApp() {
 
       <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-md overflow-hidden">
         
-        {/* CABEÇALHO DO LAUDO */}
         <div className="bg-slate-900 text-white p-6 border-b-[6px] border-blue-600">
           <div className="text-center mb-6">
             <h1 className="text-3xl font-black uppercase tracking-wider">{docInfo.empresa_nome}</h1>
@@ -398,7 +385,6 @@ export default function ChecklistApp() {
           </div>
         </div>
 
-        {/* DADOS DO VEÍCULO E CONDUTOR */}
         <div className="p-4 md:p-6 bg-slate-50 border-b border-slate-200">
           <div className="grid grid-cols-2 gap-y-4 gap-x-4">
             <div>
@@ -414,11 +400,9 @@ export default function ChecklistApp() {
           </div>
         </div>
 
-        {/* TELA 1: PREENCHIMENTO */}
         {step === 1 && (
           <form onSubmit={handleReview} className="p-4 md:p-6 space-y-8">
             
-            {/* FOTOS */}
             {photoCategories.map((category, catIdx) => (
               <div key={catIdx} className="space-y-4">
                 <h2 className="text-xl font-bold text-slate-800 border-b-2 pb-2 border-slate-200">{category.title}</h2>
@@ -432,11 +416,11 @@ export default function ChecklistApp() {
                         {filePreviews[item.id] ? (
                           <img src={filePreviews[item.id]} alt="Preview" className="w-full h-full object-contain bg-black" />
                         ) : (
-                          <img src={item.exampleImg} alt="Exemplo" className="w-full h-full object-cover opacity-80" />
+                          // ADICIONADO LOADING LAZY NAS FOTOS DE EXEMPLO AQUI 👇
+                          <img src={item.exampleImg} alt="Exemplo" className="w-full h-full object-cover opacity-80" loading="lazy" />
                         )}
                       </div>
 
-                      {/* CONTROLE DE BOTÕES DA FOTO */}
                       {files[item.id] ? (
                         <div className="flex gap-2 w-full">
                           <label className="flex-1 flex items-center justify-center py-3 rounded-lg border-2 bg-green-50 border-green-500 text-green-700 font-bold text-sm cursor-pointer shadow-sm hover:bg-green-100 transition">
@@ -463,7 +447,6 @@ export default function ChecklistApp() {
               </div>
             ))}
 
-            {/* VÍDEO 360 */}
             <div className="space-y-4">
               <h2 className="text-xl font-bold text-slate-800 border-b-2 pb-2 border-slate-200">Vídeo Externo</h2>
               <div className="bg-slate-50 p-5 rounded-xl border border-slate-200">
@@ -481,7 +464,6 @@ export default function ChecklistApp() {
               </div>
             </div>
 
-            {/* PERGUNTA ESTEPE */}
             <div className="space-y-4">
               <h2 className="text-xl font-bold text-slate-800 border-b-2 pb-2 border-slate-200">Estepe</h2>
               <div className="bg-slate-50 p-5 rounded-xl border border-slate-200">
@@ -516,7 +498,6 @@ export default function ChecklistApp() {
               </div>
             </div>
 
-            {/* MECÂNICA */}
             <div className="space-y-4">
               <h2 className="text-xl font-bold text-slate-800 border-b-2 pb-2 border-slate-200">Mecânica Básica</h2>
               <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 space-y-5">
@@ -548,7 +529,6 @@ export default function ChecklistApp() {
               </div>
             </div>
 
-            {/* LUZES E OBS */}
             <div className="space-y-4">
               <h2 className="text-xl font-bold text-slate-800 border-b-2 pb-2 border-slate-200">Verificação de Luzes</h2>
               <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -577,7 +557,6 @@ export default function ChecklistApp() {
           </form>
         )}
 
-        {/* TELA 2: REVISÃO */}
         {step === 2 && (
           <div className="p-4 md:p-6 space-y-8 animate-fade-in">
             <div className="bg-yellow-50 border-l-4 border-yellow-500 p-5 rounded-r-lg text-yellow-800 shadow-sm">
