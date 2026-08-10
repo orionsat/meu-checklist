@@ -104,7 +104,6 @@ export default function ChecklistApp() {
 
     setDeviceOS(os);
 
-    // Se for Desktop (Windows, Mac OS sem touch, Linux), bloqueia.
     if (os === "Windows" || (os === "Mac OS" && navigator.maxTouchPoints <= 1) || (os === "Linux" && !/android/i.test(ua))) {
       setIsMobileDevice(false);
     }
@@ -171,6 +170,7 @@ export default function ChecklistApp() {
     return new File([u8arr], filename, {type:mime});
   };
 
+  // Função para carimbar foto com QUEBRA DE LINHA AUTOMÁTICA
   const processImageWithWatermark = (file) => {
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -180,32 +180,60 @@ export default function ChecklistApp() {
         img.src = event.target.result;
         img.onload = () => {
           const canvas = document.createElement("canvas");
-          
           canvas.width = img.width;
           canvas.height = img.height;
           const ctx = canvas.getContext("2d");
 
           ctx.drawImage(img, 0, 0);
 
-          const bannerHeight = Math.max(80, img.height * 0.12);
-          const fontSize = Math.max(20, Math.floor(bannerHeight * 0.25));
-
-          ctx.fillStyle = "rgba(0, 0, 0, 0.70)";
-          ctx.fillRect(0, img.height - bannerHeight, img.width, bannerHeight);
-
-          ctx.fillStyle = "#FFFFFF";
+          // Configura a fonte e tamanho dinâmico
+          const fontSize = Math.max(16, Math.floor(img.height * 0.022));
           ctx.font = `bold ${fontSize}px sans-serif`;
 
-          const now = new Date().toLocaleString("pt-BR");
-          const line1 = `VISTORIA - ${now}`;
-          const line2 = `ENDEREÇO: ${locationText}`;
-          const line3 = `COORDENADAS: ${gpsCoords || 'Indisponível'}`;
+          // Lógica de Quebra de Linha (Word Wrap) para o Endereço
+          const addressWords = `ENDEREÇO: ${locationText}`.split(' ');
+          let addrLine = '';
+          const addrLines = [];
+          for (let n = 0; n < addressWords.length; n++) {
+            const testLine = addrLine + addressWords[n] + ' ';
+            if (ctx.measureText(testLine).width > img.width - 40 && n > 0) {
+              addrLines.push(addrLine);
+              addrLine = addressWords[n] + ' ';
+            } else {
+              addrLine = testLine;
+            }
+          }
+          addrLines.push(addrLine);
 
-          ctx.fillText(line1, 20, img.height - bannerHeight + (fontSize * 1.2));
-          ctx.fillText(line2, 20, img.height - bannerHeight + (fontSize * 2.5));
+          // Calcula altura da tarja baseada na quantidade de linhas
+          const totalLines = 2 + addrLines.length; 
+          const lineHeight = fontSize * 1.4;
+          const bannerHeight = (totalLines * lineHeight) + (fontSize * 1.5); 
+
+          // Desenha a Tarja Preta
+          ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
+          ctx.fillRect(0, img.height - bannerHeight, img.width, bannerHeight);
+
+          // Posição inicial do texto
+          let currentY = img.height - bannerHeight + fontSize + 10;
+          const now = new Date().toLocaleString("pt-BR");
+
+          // Linha 1: Vistoria + OS
+          ctx.fillStyle = "#FFFFFF";
+          ctx.fillText(`VISTORIA: ${now} | OS: ${deviceOS}`, 20, currentY);
+          currentY += lineHeight;
           
+          // Linha 2: Coordenadas (Verde)
           ctx.fillStyle = "#A6E22E"; 
-          ctx.fillText(line3, 20, img.height - bannerHeight + (fontSize * 3.8));
+          ctx.fillText(`COORDENADAS: ${gpsCoords || 'Indisponível'}`, 20, currentY);
+          currentY += lineHeight;
+
+          // Linha(s) 3+: Endereço Completo
+          ctx.fillStyle = "#FFFFFF";
+          for (let i = 0; i < addrLines.length; i++) {
+            ctx.fillText(addrLines[i], 20, currentY);
+            currentY += lineHeight;
+          }
 
           resolve(canvas.toDataURL("image/jpeg", 0.85));
         };
@@ -270,7 +298,7 @@ export default function ChecklistApp() {
     dataToSend.append('data_vistoria', docInfo.data_atual);
     dataToSend.append('gps', gpsCoords || "Indisponível");
     dataToSend.append('endereco_local', locationText);
-    dataToSend.append('sistema_operacional', deviceOS); // <--- OS Capturado sendo enviado
+    dataToSend.append('sistema_operacional', deviceOS);
 
     dataToSend.append('nivel_oleo', levels.oleo);
     dataToSend.append('nivel_agua', levels.agua);
@@ -310,9 +338,7 @@ export default function ChecklistApp() {
     }
   };
 
-  // --------------------------------------------------------
   // TELA DE BLOQUEIO PARA COMPUTADORES (PC/MAC)
-  // --------------------------------------------------------
   if (!isMobileDevice) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 text-center">
@@ -331,9 +357,7 @@ export default function ChecklistApp() {
     );
   }
 
-  // --------------------------------------------------------
   // TELA NORMAL DO APLICATIVO (PARA CELULARES)
-  // --------------------------------------------------------
   return (
     <div className="min-h-screen bg-gray-100 p-2 md:p-4 font-sans text-gray-800 pb-20 relative">
       
