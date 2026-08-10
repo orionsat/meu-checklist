@@ -5,42 +5,42 @@ const photoCategories = [
   {
     title: 'Geral',
     items: [
-      { id: 'foto_selfie', label: 'Selfie com o Veículo', instruction: 'Tire uma selfie onde seu rosto e a placa do carro apareçam.', exampleImg: '/selfie.png' }
+      { id: 'foto_selfie', label: 'Selfie com o Veículo', instruction: 'Tire uma selfie onde seu rosto e a placa do carro apareçam.', exampleImg: '/selfie.jpeg' }
     ]
   },
   {
     title: 'Veículo Externo',
     items: [
-      { id: 'foto_frente', label: 'Frente do Veículo', instruction: 'Pegue o para-choque e a placa.', exampleImg: '/frente.png' },
-      { id: 'foto_traseira', label: 'Traseira do Veículo', instruction: 'Pegue o para-choque traseiro e a placa.', exampleImg: '/traseira.png' },
-      { id: 'foto_lat_esq', label: 'Lateral Esquerda', instruction: 'Vidros FECHADOS. Pegue o carro de ponta a ponta.', exampleImg: '/lateral esquerda.png' },
-      { id: 'foto_lat_dir', label: 'Lateral Direita', instruction: 'Vidros FECHADOS. Pegue o carro de ponta a ponta.', exampleImg: '/lateral esquerda.png' } 
+      { id: 'foto_frente', label: 'Frente do Veículo', instruction: 'Pegue o para-choque e a placa.', exampleImg: '/frente.jpeg' },
+      { id: 'foto_traseira', label: 'Traseira do Veículo', instruction: 'Pegue o para-choque traseiro e a placa.', exampleImg: '/traseira.jpeg' },
+      { id: 'foto_lat_esq', label: 'Lateral Esquerda', instruction: 'Vidros FECHADOS. Pegue o carro de ponta a ponta.', exampleImg: '/lateral esquerda.jpeg' },
+      { id: 'foto_lat_dir', label: 'Lateral Direita', instruction: 'Vidros FECHADOS. Pegue o carro de ponta a ponta.', exampleImg: '/lateral esquerda.jpeg' } 
     ]
   },
   {
     title: 'Veículo Interno',
     items: [
-      { id: 'foto_painel', label: 'Painel Ligado', instruction: 'Gire a chave. Mostre a quilometragem e luzes acesas.', exampleImg: '/painel ligado.png' },
-      { id: 'foto_int_frente', label: 'Interior (Frente)', instruction: 'Mostre o estado dos bancos dianteiros e painel.', exampleImg: '/interna dianteira.png' },
-      { id: 'foto_int_tras', label: 'Interior (Traseira)', instruction: 'Mostre o estado dos bancos traseiros.', exampleImg: '/interna traseira.png' }
+      { id: 'foto_painel', label: 'Painel Ligado', instruction: 'Gire a chave. Mostre a quilometragem e luzes acesas.', exampleImg: '/painel ligado.jpeg' },
+      { id: 'foto_int_frente', label: 'Interior (Frente)', instruction: 'Mostre o estado dos bancos dianteiros e painel.', exampleImg: '/interna dianteira.jpeg' },
+      { id: 'foto_int_tras', label: 'Interior (Traseira)', instruction: 'Mostre o estado dos bancos traseiros.', exampleImg: '/interna traseira.jpeg' }
     ]
   },
   {
     title: 'Mecânica (Cofre do Motor)',
     items: [
-      { id: 'foto_motor', label: 'Motor Completo', instruction: 'Abra o capô e tire uma foto geral do motor.', exampleImg: '/motor geral.png' },
-      { id: 'foto_oleo', label: 'Vareta de Óleo', instruction: 'Puxe a vareta, limpe, coloque e puxe de novo. Fotografe a marcação.', exampleImg: '/nivel oleo.png' },
-      { id: 'foto_agua', label: 'Reservatório de Água', instruction: 'Fotografe mostrando a marcação de MIN e MAX.', exampleImg: '/reservatorio agua.png' }
+      { id: 'foto_motor', label: 'Motor Completo', instruction: 'Abra o capô e tire uma foto geral do motor.', exampleImg: '/motor geral.jpeg' },
+      { id: 'foto_oleo', label: 'Vareta de Óleo', instruction: 'Puxe a vareta, limpe, coloque e puxe de novo. Fotografe a marcação.', exampleImg: '/nivel oleo.jpeg' },
+      { id: 'foto_agua', label: 'Reservatório de Água', instruction: 'Fotografe mostrando a marcação de MIN e MAX.', exampleImg: '/reservatorio agua.jpeg' }
     ]
   },
   {
     title: 'Pneus e Estepe',
     items: [
-      { id: 'foto_pneu_de', label: 'Dianteiro Esquerdo', instruction: 'Mostre o desgaste da borracha (sulcos).', exampleImg: '/pneu.png' },
-      { id: 'foto_pneu_dd', label: 'Dianteiro Direito', instruction: 'Mostre o desgaste da borracha (sulcos).', exampleImg: '/pneu.png' },
-      { id: 'foto_pneu_te', label: 'Traseiro Esquerdo', instruction: 'Mostre o desgaste da borracha (sulcos).', exampleImg: '/pneu.png' },
-      { id: 'foto_pneu_td', label: 'Traseiro Direito', instruction: 'Mostre o desgaste da borracha (sulcos).', exampleImg: '/pneu.png' },
-      { id: 'foto_estepe_pneu', label: 'Foto do Estepe', instruction: 'Fotografe o estepe dentro do porta-malas mostrando o estado.', exampleImg: '/estepe.png' }
+      { id: 'foto_pneu_de', label: 'Dianteiro Esquerdo', instruction: 'Mostre o desgaste da borracha (sulcos).', exampleImg: '/pneu.jpeg' },
+      { id: 'foto_pneu_dd', label: 'Dianteiro Direito', instruction: 'Mostre o desgaste da borracha (sulcos).', exampleImg: '/pneu.jpeg' },
+      { id: 'foto_pneu_te', label: 'Traseiro Esquerdo', instruction: 'Mostre o desgaste da borracha (sulcos).', exampleImg: '/pneu.jpeg' },
+      { id: 'foto_pneu_td', label: 'Traseiro Direito', instruction: 'Mostre o desgaste da borracha (sulcos).', exampleImg: '/pneu.jpeg' },
+      { id: 'foto_estepe_pneu', label: 'Foto do Estepe', instruction: 'Fotografe o estepe dentro do porta-malas mostrando o estado.', exampleImg: '/estepe.jpeg' }
     ]
   }
 ];
