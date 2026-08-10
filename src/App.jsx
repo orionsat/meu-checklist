@@ -40,7 +40,7 @@ const photoCategories = [
       { id: 'foto_pneu_dd', label: 'Dianteiro Direito', instruction: 'Mostre o desgaste da borracha (sulcos).', exampleImg: '/pneu.png' },
       { id: 'foto_pneu_te', label: 'Traseiro Esquerdo', instruction: 'Mostre o desgaste da borracha (sulcos).', exampleImg: '/pneu.png' },
       { id: 'foto_pneu_td', label: 'Traseiro Direito', instruction: 'Mostre o desgaste da borracha (sulcos).', exampleImg: '/pneu.png' },
-      { id: 'foto_estepe_pneu', label: 'Foto do Estepe', instruction: 'Fotografe o estepe dentro do porta-malas mostrando o estado.', exampleImg: '/pneu.png' }
+      { id: 'foto_estepe_pneu', label: 'Foto do Estepe', instruction: 'Fotografe o estepe dentro do porta-malas mostrando o estado.', exampleImg: '/estepe.png' }
     ]
   }
 ];
